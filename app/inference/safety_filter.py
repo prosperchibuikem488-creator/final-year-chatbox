@@ -21,11 +21,15 @@ class SafetyFilter:
 
     def filter_response(self, user_input, generated_response):
 
-        # Crisis detection
+        # Crisis detection (kept)
         if self.check_crisis(user_input):
             return self.safe_response()
 
-        # Optional: remove unsafe phrases
-        generated_response = re.sub(r"(harm|kill|die)", "", generated_response, flags=re.IGNORECASE)
+        #
+        generated_response = re.sub(
+            r"\b(harm|kill|die)\b", "",
+            generated_response,
+            flags=re.IGNORECASE
+        )
 
         return generated_response

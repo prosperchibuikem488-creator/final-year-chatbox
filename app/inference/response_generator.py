@@ -1,11 +1,30 @@
 import json
 import random
-
 from app.inference.emotion_predictor import EmotionPredictor
 from app.inference.gemini_predictor import GeminiPredictor
 from app.inference.safety_filter import SafetyFilter
 from app.inference.conversation_memory import ConversationMemory
 from app.inference.response_cleaner import ResponseCleaner
+
+
+
+class PersonalizationEngine:
+    def __init__(self):
+        self.profile = {
+            "name": None,
+            "last_emotion": None
+        }
+
+    def update(self, user_input, emotion):
+        self.profile["last_emotion"] = emotion
+
+        if "my name is" in user_input.lower():
+            self.profile["name"] = user_input.split("my name is")[-1].strip()
+
+    def apply(self, response):
+        if self.profile["name"]:
+            return f"{self.profile['name']}, {response}"
+        return response
 
 
 class ResponseGenerator:
@@ -18,6 +37,9 @@ class ResponseGenerator:
         self.memory = ConversationMemory()
         self.cleaner = ResponseCleaner()
 
+        # ✅ NEW: personalization
+        self.personalization = PersonalizationEngine()
+
         with open("data/coping_strategies.json", "r", encoding="utf-8") as f:
             self.coping_strategies = json.load(f)
 
@@ -29,25 +51,21 @@ class ResponseGenerator:
     # --------------------------------
     def humanize(self, response, emotion):
 
-        # remove unwanted tags
         bad = ["User:", "Bot:", "Assistant:", "AI:"]
         for b in bad:
             response = response.replace(b, "")
 
         response = response.strip()
 
-        # 🔥 LIMIT TO 1–4 SENTENCES
         sentences = response.split(". ")
         if len(sentences) > 4:
             response = ". ".join(sentences[:4])
             if not response.endswith("."):
                 response += "."
 
-        # limit multiple questions
         if response.count("?") > 1:
             response = response.split("?")[0] + "?"
 
-        # emotional shaping (DO NOT override response)
         if emotion == "sadness":
             if "?" not in response:
                 response += " Do you want to talk about it?"
@@ -63,29 +81,40 @@ class ResponseGenerator:
     # --------------------------------
     def generate(self, user_input):
 
+        
+        if self.safety_filter.check_crisis(user_input):
+            safe_msg = self.safety_filter.safe_response()
+            return {
+                "emotion": "crisis",
+                "response": safe_msg
+            }
+
         # 1. Emotion detection
         emotions = self.emotion_model.predict_emotions(user_input)
         primary_emotion = self.get_primary_emotion(emotions)
         primary_emotion = primary_emotion.lower().strip()
 
-        # 🔥 OPTIONAL QUICK FIX (improves wrong emotion cases)
+        
         if "fail" in user_input.lower():
             primary_emotion = "sadness"
 
-        # 2. Memory context
+
         context = self.memory.get_context()
 
-        # 3. AI response
+    
         response = self.dialog_model.generate_response(
             user_input=user_input,
             emotion=primary_emotion,
             context=context
         )
 
-        # 4. Humanize (FIXED)
+        # 4. Humanize
         response = self.humanize(response, primary_emotion)
 
-        # 5. Coping strategies (optional)
+        
+        self.personalization.update(user_input, primary_emotion)
+
+        
         strategies = self.coping_strategies.get(primary_emotion, [])
 
         if primary_emotion in ["sadness", "stress", "anxiety"] and strategies:
@@ -93,13 +122,16 @@ class ResponseGenerator:
                 strategy = random.choice(strategies)
                 response += f"\n\n💡 {strategy}"
 
-        # 6. Clean response
+        
         response = self.cleaner.clean(response)
 
-        # 7. Safety filter
+        
         response = self.safety_filter.filter_response(user_input, response)
 
-        # 8. Save memory
+    
+        response = self.personalization.apply(response)
+
+
         self.memory.add_turn(user_input, response)
 
         return {
