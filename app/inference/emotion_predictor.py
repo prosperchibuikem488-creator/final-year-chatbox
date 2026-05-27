@@ -5,12 +5,21 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 class EmotionPredictor:
 
-    def __init__(self, model_path="models/emotion_classifier", threshold=0.30):
+    def __init__(self, model_path=None, threshold=0.30):
+
+        # Resolve model path: prefer HF_REPO_ID env var, fall back to local path
+        if model_path is None:
+            model_path = os.environ.get(
+                "HF_REPO_ID", "models/emotion_classifier_v6"
+            )
 
         self.model_path = model_path
         self.threshold = threshold
 
-        # Ensure model directory exists
+        # Read optional Hugging Face token for private repos
+        hf_token = os.environ.get("HF_TOKEN")
+
+        # Ensure model directory exists (only relevant for local paths)
         os.makedirs("models", exist_ok=True)
 
         # Load device (GPU if available)
@@ -19,12 +28,15 @@ class EmotionPredictor:
         )
 
         print("Emotion Predictor running on:", self.device)
+        print("Loading emotion model from:", self.model_path)
 
         # Load tokenizer and model
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, token=hf_token
+        )
 
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_path
+            self.model_path, token=hf_token
         )
 
         self.model.to(self.device)
