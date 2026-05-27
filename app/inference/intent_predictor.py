@@ -18,8 +18,17 @@ class IntentPredictor:
         # Read optional Hugging Face token for private repos
         hf_token = os.environ.get("HF_TOKEN")
 
+        # DEBUG: verify HF_TOKEN is reaching the Python process
+        print(
+            "DEBUG [IntentPredictor] HF_TOKEN:",
+            (hf_token[:10] + "...") if hf_token else "None"
+        )
+
         # Only pass token kwarg if a token is actually available
         token_kwargs = {"token": hf_token} if hf_token else {}
+
+        # DEBUG: confirm token_kwargs is populated before model loading
+        print("DEBUG [IntentPredictor] token_kwargs:", token_kwargs)
 
         # Ensure model directory exists (only relevant for local paths)
         os.makedirs("models", exist_ok=True)
