@@ -30,13 +30,17 @@ class EmotionPredictor:
         print("Emotion Predictor running on:", self.device)
         print("Loading emotion model from:", self.model_path)
 
-        # Load tokenizer and model
+        # Load tokenizer and model — only forward the token kwarg when a
+        # value is actually present so the transformers library can still
+        # fall back to its own credential resolution when HF_TOKEN is unset.
+        token_kwargs = {"token": hf_token} if hf_token else {}
+
         self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, token=hf_token
+            self.model_path, **token_kwargs
         )
 
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_path, token=hf_token
+            self.model_path, **token_kwargs
         )
 
         self.model.to(self.device)
