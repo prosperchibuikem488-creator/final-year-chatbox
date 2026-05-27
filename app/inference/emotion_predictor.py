@@ -19,6 +19,12 @@ class EmotionPredictor:
         # Read optional Hugging Face token for private repos
         hf_token = os.environ.get("HF_TOKEN")
 
+        # DEBUG: verify HF_TOKEN is reaching the Python process
+        print(
+            "DEBUG [EmotionPredictor] HF_TOKEN:",
+            (hf_token[:10] + "...") if hf_token else "None"
+        )
+
         # Ensure model directory exists (only relevant for local paths)
         os.makedirs("models", exist_ok=True)
 
@@ -34,6 +40,9 @@ class EmotionPredictor:
         # value is actually present so the transformers library can still
         # fall back to its own credential resolution when HF_TOKEN is unset.
         token_kwargs = {"token": hf_token} if hf_token else {}
+
+        # DEBUG: confirm token_kwargs is populated before model loading
+        print("DEBUG [EmotionPredictor] token_kwargs:", token_kwargs)
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, **token_kwargs
